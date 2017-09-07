@@ -1,18 +1,16 @@
 package mainsystem;
 
-public class Sms extends Message {
-	private String code;
-	
-	
-//	String source;
-//	String destination;
-//	String message;
-//	long timestamp;
+import java.io.Serializable;
+
+public class Sms extends Message implements Serializable {
+	private static final long serialVersionUID = 5246511297006028670L;
+	//	String code;
 
 	public Sms(String destination, String code) {
 		super();
 		this.destination = destination;
 		this.code = code;
+		this.direction = true;
 	}
 
 	public String getCode() {

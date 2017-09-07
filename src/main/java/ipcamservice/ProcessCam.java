@@ -26,7 +26,7 @@ public class ProcessCam implements SmsService, Runnable {
 	HashMap<String, IPCam> cameras;
 	final private long connectionTimeout = 10000l;
 	final private long socketTimeout = 30000l;
-	// final private long framesPerMinute = 6;
+
 	public ProcessCam() {
 		this.cameras = new HashMap<String, IPCam>();
 		Unirest.setTimeouts(connectionTimeout, socketTimeout);
@@ -50,9 +50,12 @@ public class ProcessCam implements SmsService, Runnable {
 		logger.log(Level.TRACE, "return T: " + sms.getTimestamp());
 
 		return ipCam.path + ".jpg";// {timestamp, camera-id, image } //convert
+		
 	}
 
-	public void run() {
+	synchronized public void run() {
+		Thread.currentThread().setName(ProcessCam.class.getSimpleName());
+		logger.log(Level.TRACE, ">>>>>>>>>>>> RUNNING thread:" +Thread.currentThread().getName());
 		this.refreshPhotosFromCams();
 	}
 
