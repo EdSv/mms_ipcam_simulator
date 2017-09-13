@@ -1,56 +1,72 @@
 package servicedispatcher;
 
-import java.io.BufferedOutputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.ObjectOutputStream;
-import java.io.OutputStream;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
-import org.apache.http.util.ByteArrayBuffer;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.zeromq.ZFrame;
+import org.zeromq.ZMQ;
+import org.zeromq.ZMsg;
 
 import mainsystem.GsmServer;
-import mainsystem.Message;
 import mainsystem.Mms;
 import mainsystem.Sms;
 
 public class SmsServiceCenter implements Runnable {
-	final static  Logger logger = LogManager.getLogger(SmsServiceCenter.class.getName());
-	HashMap<String, SmsService> services;
+	final static Logger logger = LogManager.getLogger(SmsServiceCenter.class.getName());
+	HashMap<String, ZMQService> services;
 	Queue<Sms> smsQueue;
 
 	public static SmsServiceCenter getInstance() {
 		return SmsServiceCenterHolder.instanceHolder;
 	}
-	
+
 	private SmsServiceCenter() {
 		super();
 		this.smsQueue = new ConcurrentLinkedQueue<Sms>();
-		this.services = new HashMap<String, SmsService>();
+		this.services = new HashMap<String, ZMQService>();
 	}
-	
-	public static class SmsServiceCenterHolder {//thread safe
-		public static SmsServiceCenter instanceHolder = new SmsServiceCenter ();
+
+	public static class SmsServiceCenterHolder {// thread safe
+		public static SmsServiceCenter instanceHolder = new SmsServiceCenter();
 	}
 
 	public boolean putSmsToQueue(Sms sms) {
 		return smsQueue.offer(sms);
 	}
 
-	public void run() {
+	private ZMsg requestImageFromIPCam(String code) {
+		ZMQ.Context context = ZMQ.context(1);
+		ZMQ.Socket ipCamPhotoRequestor = context.socket(ZMQ.REQ);
+		ipCamPhotoRequestor.connect("tcp://localhost:5070");//hardcoded, better pull from ZMQService 
+		ipCamPhotoRequestor.send(code);// get [timestamp, image] from ipcam
 
+		// ZFrame f = new ZFrame(data);
+		// ZFrame.recvFrame(ipCamPhotoRequestor, 0);
+
+		ZMsg m = ZMsg.recvMsg(ipCamPhotoRequestor, 0);
+		ipCamPhotoRequestor.close();
+		return m;
+	}
+
+	private Mms prepareMMS(ZMsg zmsg, Sms sms) {
+		ZFrame timestampFr = zmsg.getFirst();
+		long timestamp = Long.parseLong(timestampFr.getData().toString(), 10);
+		ZFrame imageFr = zmsg.getLast();
+		byte[] imageForMMS = imageFr.getData();
+
+		Mms mms = new Mms(sms);
+		mms.image = imageForMMS;
+		mms.setTimestamp(timestamp);
+		return mms;
+	}
+
+	public void run() {
+		logger.log(Level.TRACE, ">>>>>>>>>>>> RUNNING thread:" + Thread.currentThread().getName());
+		GsmServer gsm = GsmServer.getInstance();
 		while (true) {
 			try {
 				Thread.sleep(1000l);
@@ -59,71 +75,12 @@ public class SmsServiceCenter implements Runnable {
 			}
 			if (!smsQueue.isEmpty()) {
 				Sms sms = smsQueue.poll();
-				String path = null;
-				SmsService ss = null;
-				ss = services.get("camService");
-				try {
-					path = (String) (ss.serve(sms));
-				} catch (NullPointerException e) {
-					logger.log(Level.DEBUG, e);
-				}
-
-				if (path == null) {
-					this.putSmsToQueue(sms);
-					continue;
-				}
+				//ZMQService ss = services.get("camService");
+				//ss.serve(sms);
 				
-				
-				byte [] image = null;
-				try {
-					image = Files.readAllBytes(Paths.get(".", path).toAbsolutePath());
-				} catch (IOException e) {
-					logger.log(Level.DEBUG, e);
-				}catch (NullPointerException e){
-					logger.log(Level.DEBUG, e);
-				}
-				
-					
-				Mms mms = new Mms(sms);
-				if(image != null && image.length > 0) {
-				mms.setImage(image);
-				mms.setDirection(false);
-				}
-				
-				GsmServer gsm = GsmServer.getInstance();
+				ZMsg zmsg = requestImageFromIPCam(sms.getCode());
+				Mms mms = prepareMMS(zmsg, sms);
 				gsm.sendMms(mms);
-				
-				///---------move<<<
-				
-//				try {
-//					FileInputStream fin = new FileInputStream(path);
-//					File directory = new File(sms.getSource());// directory as phoneNumber
-//															
-//					if (!directory.exists()) {
-//						directory.mkdir();// directory.mkdirs();
-//					}
-//
-//					OutputStream fout = new BufferedOutputStream(new FileOutputStream(
-//							directory.getPath() + "/photoshot-" 
-//							+ sms.getCode() + "-T" + sms.getTimestamp() + ".jpg"));
-//					
-//					byte [] buffer = new byte [1024];
-//		         	int lengthRead;
-//		         	while ((lengthRead = fin.read(buffer)) >0) {
-//		         		fout.write(buffer, 0, lengthRead);
-//		         		fout.flush();
-//		         	}
-//					fout.close();
-//					fin.close();
-//				} catch (FileNotFoundException e) {
-//					logger.log(Level.ERROR, e);
-//					this.putSmsToQueue(sms);//try again
-//				} catch (IOException e) {
-//					logger.log(Level.DEBUG, e);
-//					this.putSmsToQueue(sms);
-//				}
-				
-				///>>>>>>>>>>
 
 			} else {
 				try {
@@ -134,13 +91,10 @@ public class SmsServiceCenter implements Runnable {
 			}
 		}
 	}
-
-	public String addSmsService(SmsService service) {
+	//?remove
+	public String addSmsService(ZMQService service) {
 		String ussdCode = "camService";
 		services.put(ussdCode, service);
 		return ussdCode;
 	}
-	
-	
-
 }

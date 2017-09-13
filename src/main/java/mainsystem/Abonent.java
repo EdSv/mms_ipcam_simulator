@@ -21,6 +21,7 @@ import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.core.appender.mom.kafka.KafkaManager;
+import org.apache.logging.log4j.util.Strings;
 import org.zeromq.ZMQ;
 import com.esotericsoftware.kryo.*;
 import com.esotericsoftware.kryo.io.Output;
@@ -33,7 +34,6 @@ public class Abonent implements Runnable {
 	private static int count = 0;
 	String phoneNumber;
 	private int port;
-	private BaseStation baseStation;
 	private byte [] MMSstore;
 	
 	static class netModule {
@@ -58,7 +58,6 @@ public class Abonent implements Runnable {
 
 	public Abonent() {
 		this.phoneNumber = "(096) 300-900-" + (700 + count++);
-		this.baseStation = BaseStation.getInstance();
 		this.port = 5560 + count;//port for mms
 	}
 
@@ -80,18 +79,23 @@ public class Abonent implements Runnable {
 		logger.log(Level.TRACE, "^^^^^^^^^^^^^^^ ABONENT #" + count + "  " + this.phoneNumber);
 		while (!Thread.currentThread().isInterrupted()){
 			if (qntSms > 0) {
-				Sms sms = new Sms("camService", "id" + (random.nextInt(3) % 3 + 1));
-				sms.netAddr = this.getPort();
-				sendSms(new Sms("camService", "id" + (random.nextInt(3) % 3 + 1)));
+				Sms sms = new Sms("camService", Integer.toString(random.nextInt(3) % 3 + 1));
+				//sms.netAddr = this.getPort();
+				sendSms(sms);
 			}
 			
-
+			logger.log(Level.TRACE, "WAIT MMS here");
 			byte[] bMms = responder.recv(0);
+			logger.log(Level.TRACE, "WAIT MMS here2");
+			
 			Object ob = deserialize(bMms);
 			Mms mms = null;
 			if(ob instanceof Mms) {
 				mms = (Mms)ob;
-				System.out.println("MMS sise:  " + mms.getImage().length);
+				logger.log(Level.TRACE, "MMS on abonent:  /n" + mms.getImage().length
+						+ "/n" + mms.timestamp
+						+ "/n" + mms.direction
+						+ "/n" + mms.netAddr);
 				this.MMSstore = mms.getImage();
 				saveToLocalstore(mms);
 			} 
@@ -144,7 +148,6 @@ public class Abonent implements Runnable {
 			if (!directory.exists()) {
 				directory.mkdir();
 			}
-
 			OutputStream fout = new BufferedOutputStream(new FileOutputStream(
 					directory.getPath() + "/photoshot-" 
 					+ mms.getCode() + "-T" + mms.getTimestamp() + ".jpg"));

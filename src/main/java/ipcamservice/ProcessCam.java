@@ -18,44 +18,25 @@ import com.mashape.unirest.http.Unirest;
 import com.mashape.unirest.http.async.Callback;
 import com.mashape.unirest.http.exceptions.UnirestException;
 
+import ipcamservice.dao.IPCamDao;
 import mainsystem.Sms;
-import servicedispatcher.SmsService;
 
-public class ProcessCam implements SmsService, Runnable {
+
+public class ProcessCam  implements Runnable {
 	static final Logger logger = LogManager.getLogger();
 	HashMap<String, IPCam> cameras;
+	
 	final private long connectionTimeout = 10000l;
 	final private long socketTimeout = 30000l;
 
 	public ProcessCam() {
-		this.cameras = new HashMap<String, IPCam>();
+		this.cameras = IPCamDao.getInstance().getAll();//new HashMap<String, IPCam>();
 		Unirest.setTimeouts(connectionTimeout, socketTimeout);
-	}
-
-	synchronized public String serve(Sms sms) {
-		if (sms == null)
-			return null;
-
-		IPCam ipCam = cameras.get(sms.getCode());
-
-		if (ipCam == null)
-			return null;// replace on custom Exception
-
-		sms.setTimestamp(ipCam.timestamp);
-
-		logger.log(Level.TRACE, "sms:" + sms);
-		logger.log(Level.TRACE, " ipCam: " + ipCam);
-		logger.log(Level.TRACE, " ipCam.timestamp: " + ipCam.timestamp);
-		logger.log(Level.TRACE, "return PATH: " + ipCam.path);
-		logger.log(Level.TRACE, "return T: " + sms.getTimestamp());
-
-		return ipCam.path + ".jpg";// {timestamp, camera-id, image } //convert
-		
 	}
 
 	synchronized public void run() {
 		Thread.currentThread().setName(ProcessCam.class.getSimpleName());
-		logger.log(Level.TRACE, ">>>>>>>>>>>> RUNNING thread:" +Thread.currentThread().getName());
+		logger.log(Level.TRACE, ">>>>>>>>>>>> RUNNING thread:" + Thread.currentThread().getName());
 		this.refreshPhotosFromCams();
 	}
 
@@ -97,7 +78,7 @@ public class ProcessCam implements SmsService, Runnable {
 						try {
 							long t = System.currentTimeMillis();
 							String p = ipCam.path + "-" + t + ".jpg";// temp
-																		
+
 							File file = new File(p);
 							OutputStream fout = new BufferedOutputStream(new FileOutputStream(file));
 
@@ -110,7 +91,7 @@ public class ProcessCam implements SmsService, Runnable {
 
 							fout.close();
 							file.renameTo(new File(ipCam.path + ".jpg"));
-																			
+
 						} catch (IOException e) {
 							logger.log(Level.DEBUG, e);
 						}

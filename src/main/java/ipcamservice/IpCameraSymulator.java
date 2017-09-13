@@ -2,12 +2,8 @@ package ipcamservice;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Random;
-import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.ThreadPoolExecutor;
-
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -15,7 +11,6 @@ import org.apache.logging.log4j.Logger;
 import mainsystem.Abonent;
 import mainsystem.BaseStation;
 import mainsystem.GsmServer;
-import mainsystem.Sms;
 import servicedispatcher.SmsServiceCenter;
 
 public class IpCameraSymulator {
@@ -44,16 +39,29 @@ public class IpCameraSymulator {
 
 	static ProcessCam listenIPcameras() {
 		ProcessCam pc = new ProcessCam();
-		pc.addCamera(new IPCam("http://96.10.1.168/jpg/image.jpg?size=3"));
-		pc.addCamera(new IPCam(
-				"http://94.74.71.103:8080/axis-cgi/jpg/image.cgi?camera=1&resolution=320x240&compression=25"));
-		pc.addCamera(new IPCam("http://cam.unitop.ua:8161/record/current.jpg"));
+		// pc.addCamera(new IPCam("http://96.10.1.168/jpg/image.jpg?size=3"));
+		// pc.addCamera(new IPCam("http://82.144.57.103/oneshotimage.jpg"));
+		// pc.addCamera(new IPCam(
+		// "http://94.74.71.103:8080/axis-cgi/jpg/image.cgi?camera=1&resolution=320x240&compression=25"));
+		// pc.addCamera(new
+		// IPCam("http://cam.unitop.ua:8161/record/current.jpg"));
 
 		executor.execute(pc);
 		return pc;
 	}
 
 	public static void main(String[] args) {
+		ipcamservice.IPCamService.main(null);// start thread
+
+		IPCamInternalService iservice = new IPCamInternalService();
+		Thread ts = new Thread(iservice);
+		ts.start();
+
+		try {
+			Thread.sleep(10000l);
+		} catch (InterruptedException e) {
+			logger.log(Level.DEBUG, e);
+		}
 		Thread.currentThread().setName("MAIN thread");
 		int qntAbonents = 10;
 		executor = Executors.newFixedThreadPool(qntAbonents + 4);
@@ -63,7 +71,6 @@ public class IpCameraSymulator {
 		activateAbonents(qntAbonents);
 
 		SmsServiceCenter sc = SmsServiceCenter.getInstance();
-		sc.addSmsService(pc);
 
 		Thread processSmsService = new Thread(sc);
 		processSmsService.setName(SmsServiceCenter.class.getSimpleName());

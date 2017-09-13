@@ -20,11 +20,11 @@ public class Sms extends Message implements Serializable {
 	public String getDestination() {
 		return this.destination;
 	}
-
+	
 	public long getTimestamp() {
 		return timestamp;
 	}
-
+	
 	public void setTimestamp(long timestamp) {
 		this.timestamp = timestamp;
 	}

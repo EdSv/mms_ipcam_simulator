@@ -4,7 +4,6 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.util.HashMap;
-
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -52,9 +51,15 @@ public class BaseStation implements Runnable {
 			if (sms.direction)
 				forwardRequest(request, "tcp://localhost:5556");
 			else {
+				logger.log(Level.TRACE, "MMS on base:  /n" + ((Mms)sms).getImage().length
+						+ "/n" + sms.timestamp
+						+ "/n" + sms.direction
+						+ "/n" + sms.netAddr);
 				forwardRequest(request, "tcp://localhost:" + sms.netAddr);
+				
 			}
 		}
+		
 		responder.close();
 		context.term();
 	}

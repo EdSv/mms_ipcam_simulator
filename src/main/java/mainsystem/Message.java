@@ -20,6 +20,10 @@ public abstract class Message  implements Serializable{
 		return this.timestamp;
 	}
 	
+	public void setTimestamp(long timestamp) {
+		this.timestamp = timestamp;
+	}
+
 	public String getCode() {
 		return this.code;
 	}

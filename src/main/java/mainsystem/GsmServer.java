@@ -35,13 +35,6 @@ public class GsmServer implements Runnable {
 
 	public void sendMms(Mms mms) {
 		messageQueue.add(mms);
-		Message msg = messageQueue.poll();
-		String addr = "tcp://localhost:5555"; 
-		byte[] data = serialize(msg);
-		ZMQ.Context context = ZMQ.context(1);
-		ZMQ.Socket sender = context.socket(ZMQ.REQ);
-		sender.connect(addr);
-		sender.send(data);
 	}
 
 	public void run() {
@@ -54,20 +47,18 @@ public class GsmServer implements Runnable {
 
 		while (!Thread.currentThread().isInterrupted()) {
 			byte[] request = responder.recv(0);
-			// System.out.println("Received " + new String(request));
-
 			String reply = "ok";
 			responder.send(reply.getBytes(), 0);
 			// responder.recv(0);
 
 			Sms sms = (Sms) deserialize(request);
-
 			SmsServiceCenter.getInstance().putSmsToQueue(sms);
+			logger.log(Level.TRACE, " WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW WEAREHERE " + messageQueue.size() );
 
 			while (messageQueue.size() > 0) {
 				Message msg = messageQueue.poll();
 				String addr = "tcp://localhost:5555"; 
-														
+
 				byte[] data = serialize(msg);
 				ZMQ.Socket sender = context.socket(ZMQ.REQ);
 				sender.connect(addr);
